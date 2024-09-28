@@ -19,7 +19,10 @@ def get_dti_dataset():
     train = train_val["train"]
     val = train_val["val"]
     test = group.get_test()["test"]
-    return pd.concat([train, val, test], axis=0, ignore_index=True)
+    df = pd.concat([train, val, test], axis=0, ignore_index=True)
+    df["protein"] = df["name"]
+    df["cell"] = df["cell_type_label"]
+    return df
 
 def get_ctspec_protein_embed(cell, protein):
     df = get_embedddings()
