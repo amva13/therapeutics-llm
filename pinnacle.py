@@ -54,123 +54,131 @@ def get_embedddings():
     embeds["cell"] = cells
     return embeds
 
-# Tool definitions for AI21
-def get_dti_dataset_tool():
-    return ToolDefinition(
-        type="function",
-        function=FunctionToolDefinition(
-            name="get_dti_dataset",
-            description="Get the Drug Target Interaction (DTI) dataset.",
-            parameters=ToolParameters(
-                type="object",
-                properties={},
-                required=[]
-            )
-        )
-    )
+def get_cell_types_for_ra():
+    df = get_dti_dataset()
+    return df[df["disease"].lower() == "ra"]["cell"].unique()
 
-def get_ctspec_protein_embed_tool():
-    return ToolDefinition(
-        type="function",
-        function=FunctionToolDefinition(
-            name="get_ctspec_protein_embed",
-            description="Get cell-type specific protein embedding.",
-            parameters=ToolParameters(
-                type="object",
-                properties={
-                    "cell": {"type": "string", "description": "Cell type"},
-                    "protein": {"type": "string", "description": "Protein name"}
-                },
-                required=["cell", "protein"]
-            )
-        )
-    )
+def get_cell_types_for_ibd():
+    df = get_dti_dataset()
+    return df[df["disease"].lower() == "ibd"]["cell"].unique()
 
-def is_target_tool():
-    return ToolDefinition(
-        type="function",
-        function=FunctionToolDefinition(
-            name="is_target",
-            description="Check if a protein is a drug target in a specific cell type and disease. ",
-            parameters=ToolParameters(
-                type="object",
-                properties={
-                    "cell": {"type": "string", "description": "Cell type"},
-                    "protein": {"type": "string", "description": "Protein name"},
-                    "disease": {"type": "string", "description": "Disease name"}
-                },
-                required=["cell", "protein", "disease"]
-            )
-        )
-    )
+# # Tool definitions for AI21
+# def get_dti_dataset_tool():
+#     return ToolDefinition(
+#         type="function",
+#         function=FunctionToolDefinition(
+#             name="get_dti_dataset",
+#             description="Get the Drug Target Interaction (DTI) dataset.",
+#             parameters=ToolParameters(
+#                 type="object",
+#                 properties={},
+#                 required=[]
+#             )
+#         )
+#     )
 
-# Register the tools with Jamba
-tools = [
-    # get_dti_dataset_tool(),
-    # get_ctspec_protein_embed_tool(),
-    is_target_tool()
-]
+# def get_ctspec_protein_embed_tool():
+#     return ToolDefinition(
+#         type="function",
+#         function=FunctionToolDefinition(
+#             name="get_ctspec_protein_embed",
+#             description="Get cell-type specific protein embedding.",
+#             parameters=ToolParameters(
+#                 type="object",
+#                 properties={
+#                     "cell": {"type": "string", "description": "Cell type"},
+#                     "protein": {"type": "string", "description": "Protein name"}
+#                 },
+#                 required=["cell", "protein"]
+#             )
+#         )
+#     )
 
-messages = [
-    ChatMessage(
-        role="system",
-        content="You are a professional biologist and therapeutics scientist. Always use the is_target tool first.  Answer the questions to the best of your ability."),
+# def is_target_tool():
+#     return ToolDefinition(
+#         type="function",
+#         function=FunctionToolDefinition(
+#             name="is_target",
+#             description="Check if a protein is a drug target in a specific cell type and disease. ",
+#             parameters=ToolParameters(
+#                 type="object",
+#                 properties={
+#                     "cell": {"type": "string", "description": "Cell type"},
+#                     "protein": {"type": "string", "description": "Protein name"},
+#                     "disease": {"type": "string", "description": "Disease name"}
+#                 },
+#                 required=["cell", "protein", "disease"]
+#             )
+#         )
+#     )
+
+# # Register the tools with Jamba
+# tools = [
+#     # get_dti_dataset_tool(),
+#     # get_ctspec_protein_embed_tool(),
+#     is_target_tool()
+# ]
+
+# messages = [
+#     ChatMessage(
+#         role="system",
+#         content="You are a professional biologist and therapeutics scientist. Always use the is_target tool first.  Answer the questions to the best of your ability."),
     
-    ChatMessage(role="user", content="Is STK38 a target for IBD?"),
-]
+#     ChatMessage(role="user", content="Is STK38 a target for IBD?"),
+# ]
 
 
-# Process the tool calls for the AI21 API
-def process_tool_calls(assistant_message):
-    tool_call_id_to_result = {}
-    tool_calls = assistant_message.tool_calls
+# # Process the tool calls for the AI21 API
+# def process_tool_calls(assistant_message):
+#     tool_call_id_to_result = {}
+#     tool_calls = assistant_message.tool_calls
     
-    if tool_calls:
-        for tool_call in tool_calls:
-            # Handle the is_target tool call
-            if tool_call.function.name == "is_target":
-                func_arguments = json.loads(tool_call.function.arguments)
-                cell = func_arguments.get("cell")
-                protein = func_arguments.get("protein")
-                disease = func_arguments.get("disease")
-                if cell and protein and disease:
-                    result = is_target(cell, protein, disease)
-                    tool_call_id_to_result[tool_call.id] = result
-                else:
-                    print(f"Got unexpected arguments in function call - {func_arguments}")
+#     if tool_calls:
+#         for tool_call in tool_calls:
+#             # Handle the is_target tool call
+#             if tool_call.function.name == "is_target":
+#                 func_arguments = json.loads(tool_call.function.arguments)
+#                 cell = func_arguments.get("cell")
+#                 protein = func_arguments.get("protein")
+#                 disease = func_arguments.get("disease")
+#                 if cell and protein and disease:
+#                     result = is_target(cell, protein, disease)
+#                     tool_call_id_to_result[tool_call.id] = result
+#                 else:
+#                     print(f"Got unexpected arguments in function call - {func_arguments}")
                     
-            # Handle the get_ctspec_protein_embed tool call
-            elif tool_call.function.name == "get_ctspec_protein_embed":
-                func_arguments = json.loads(tool_call.function.arguments)
-                cell = func_arguments.get("cell")
-                protein = func_arguments.get("protein")
-                if cell and protein:
-                    result = get_ctspec_protein_embed(cell, protein)
-                    tool_call_id_to_result[tool_call.id] = result
-                else:
-                    print(f"Got unexpected arguments in function call - {func_arguments}")
+#             # Handle the get_ctspec_protein_embed tool call
+#             elif tool_call.function.name == "get_ctspec_protein_embed":
+#                 func_arguments = json.loads(tool_call.function.arguments)
+#                 cell = func_arguments.get("cell")
+#                 protein = func_arguments.get("protein")
+#                 if cell and protein:
+#                     result = get_ctspec_protein_embed(cell, protein)
+#                     tool_call_id_to_result[tool_call.id] = result
+#                 else:
+#                     print(f"Got unexpected arguments in function call - {func_arguments}")
                     
-            else:
-                print(f"Unexpected tool call found - {tool_call.function.name}")
+#             else:
+#                 print(f"Unexpected tool call found - {tool_call.function.name}")
                 
-    return tool_call_id_to_result
+#     return tool_call_id_to_result
 
-# Initial response
-response = client.chat.completions.create(messages=messages, model="jamba-1.5-mini", tools=tools)
-assistant_message = response.choices[0].message
-messages.append(assistant_message)
-tool_call_id_to_result = process_tool_calls(assistant_message)
+# # Initial response
+# response = client.chat.completions.create(messages=messages, model="jamba-1.5-mini", tools=tools)
+# assistant_message = response.choices[0].message
+# messages.append(assistant_message)
+# tool_call_id_to_result = process_tool_calls(assistant_message)
 
 
-# Add tool results to messages
-for tool_id_called, result in tool_call_id_to_result.items():
-    tool_message = ToolMessage(role="tool", tool_call_id=tool_id_called, content=str(result))
-    messages.append(tool_message)
+# # Add tool results to messages
+# for tool_id_called, result in tool_call_id_to_result.items():
+#     tool_message = ToolMessage(role="tool", tool_call_id=tool_id_called, content=str(result))
+#     messages.append(tool_message)
 
-# # Final response
-response = client.chat.completions.create(messages=messages, model="jamba-1.5-mini", tools=tools)
-final_response = response.choices[0].message.content
-print(final_response)
+# # # Final response
+# response = client.chat.completions.create(messages=messages, model="jamba-1.5-mini", tools=tools)
+# final_response = response.choices[0].message.content
+# print(final_response)
 
-print(response)
+# print(response)
 

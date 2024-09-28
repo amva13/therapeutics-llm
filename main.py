@@ -1,18 +1,20 @@
 # Import the libraries needed
-from tdc.benchmark_group import scdti_group
-from tdc.resource.pinnacle import PINNACLE
-from pandas import DataFrame
-import pandas as pd
-import os
+# # # from tdc.benchmark_group import scdti_group
+# # # from tdc.resource.pinnacle import PINNACLE
+# # from pandas import DataFrame
+# # import pandas as pd
+# import os
 from ai21 import AI21Client
 from ai21.models.chat import ChatMessage, ToolMessage
 from ai21.models.chat.function_tool_definition import FunctionToolDefinition
 from ai21.models.chat.tool_defintions import ToolDefinition
 from ai21.models.chat.tool_parameters import ToolParameters
-from pinnacle import is_target, get_ctspec_protein_embed
+from pinnacle import * 
 from primekg import *
 from cell_annotation import *
 import json
+
+import queries
 
 # Initialize the AI21 Jamba client
 client = AI21Client(api_key=("E13ddoghRLczpStIvPDYIquXdUpGbsqs"))
@@ -127,6 +129,36 @@ def get_labels_from_evidence_tool():
         )
     )
 
+def get_cell_types_for_ra_tool():
+    return ToolDefinition(
+        type="function",
+        function=FunctionToolDefinition(
+            name="get_cell_types_for_ra",
+            description="Get cell types containing protein targets for RA disease.",
+            parameters=ToolParameters(
+                type="object",
+                properties={},
+                required=[]
+            )
+        )
+    )
+
+def get_cell_types_for_ibd_tool():
+    return ToolDefinition(
+        type="function",
+        function=FunctionToolDefinition(
+            name="get_cell_types_for_ibd",
+            description="Get cell types containing protein targets for IBD disease.",
+            parameters=ToolParameters(
+                type="object",
+                properties={},
+                required=[]
+            )
+        )
+    )
+    
+
+
 
 # Register the tools with Jamba
 tools = [
@@ -136,26 +168,11 @@ tools = [
     get_all_drug_evidence_tool(),
     get_all_associated_targets_tool(),
     get_disease_disease_associations_tool(),
-    get_labels_from_evidence_tool()
+    get_labels_from_evidence_tool(),
+    get_cell_types_for_ibd_tool(),
+    get_cell_types_for_ra_tool()
 ]
 
-messages = [
-    ChatMessage(
-        role="system",
-        content='''
-You are a professional biologist and therapeutics scientist. Use the supplied tools to answer the query provided by the user.
-Think step by step. You run in a loop of THOUGHT, ACTION, OBSERVATION. 
-At the end of the loop you output an ANSWER.
-Use THOUGHT to describe your thoughts about the question you have been asked.
-Use ACTION to run one of the actions available to you.
-OBSERVATION will be the result of running those actions.
-
-The ANSWER should directly and succintly answer the user's original query. You should not write code in the ANSWER, only provide a direct answer to the user's query.
-
-'''),
-    
-    ChatMessage(role="user", content="Is STK38 a target for IBD?"),
-]
 
 
 # Process the tool calls for the AI21 API
@@ -227,14 +244,18 @@ def process_tool_calls(assistant_message):
                     tool_call_id_to_result[tool_call.id] = result
                 else:
                     print(f"Got unexpected arguments in function call - {func_arguments}")
-
+            elif tool_call.function.name == "get_cell_types_for_ra":
+                tool_call_id_to_result[tool_call.id] = get_cell_types_for_ra()
+            elif tool_call.function.name == "get_cell_types_for_ibd":
+                tool_call_id_to_result[tool_call.id] = get_cell_types_for_ibd()
             else:
                 print(f"Unexpected tool call found - {tool_call.function.name}")
                 
     return tool_call_id_to_result
 
 # Initial response
-response = client.chat.completions.create(messages=messages, model="jamba-1.5-mini", tools=tools)
+messages = queries.messages
+response = client.chat.completions.create(messages=messages, model="jamba-1.5-large", tools=tools)
 assistant_message = response.choices[0].message
 messages.append(assistant_message)
 tool_call_id_to_result = process_tool_calls(assistant_message)
@@ -246,7 +267,7 @@ for tool_id_called, result in tool_call_id_to_result.items():
     messages.append(tool_message)
 
 # # Final response
-response = client.chat.completions.create(messages=messages, model="jamba-1.5-mini", tools=tools)
+response = client.chat.completions.create(messages=messages, model="jamba-1.5-large", tools=tools)
 final_response = response.choices[0].message.content
 print(final_response)
 
